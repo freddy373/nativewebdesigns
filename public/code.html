@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="color-scheme" content="light">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="loader"><div class="spinner"></div></div>
+<div class="wrap">
+  <div class="stepsBox">
+    <h2 id="stepsTitle"></h2>
+    <div class="steps-flex">
+      <div class="step"><div class="circle">1</div><span id="step1"></span></div>
+      <div class="step"><div class="circle">2</div><span id="step2" class="current"></span></div>
+      <div class="step"><div class="circle">3</div><span id="step3"></span></div>
+      <div class="step"><div class="circle">4</div><span id="step4"></span></div>
+      <div class="step"><div class="circle">5</div><span id="step5"></span></div>
+      <div class="step"><div class="circle">6</div><span id="step6"></span></div>
+    </div>
+    <hr class="steps-hr">
+    <div class="progress">
+      <div class="bar-top-bot"><div class="bar"><div class="fill"></div></div><div class="bar-label" id="bar1"></div></div>
+      <div class="bar-top-bot"><div class="bar"><div class="fill"></div></div><div class="bar-label current" id="bar2"></div></div>
+      <div class="bar-top-bot"><div class="bar"><div class="grey"></div></div><div class="bar-label" id="bar3"></div></div>
+    </div>
+    <section class="ticket">
+      <div class="stubLeft">
+        <div class="form-top">
+          <div class="pin">🔐</div>
+          <div>
+            <h2 id="verifyTitle"></h2>
+            <p id="verifySubtitle"></p>
+          </div>
+        </div>
+        <input id="codeInput" class="field" type="text" maxlength="6">
+        <button id="verifyBtn" class="btn" type="button" onclick="verifyCode()"></button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="successPopup" class="popup" onclick="closePopup()">
+  <div class="popup-box" onclick="event.stopPropagation()">
+    <h2 id="successPopupTitle"></h2>
+    <p id="successPopupText"></p>
+    <button type="button" class="popup-btn" onclick="closePopup()">Ok</button>
+  </div>
+</div>
+
+<script>
+const loader = document.getElementById("loader");
+const TEXT = {
+  fr: {
+    steps: "Demande d'acces a la Kermesse CSF 2026",
+    step1: "Saisie de l'adresse e-mail",
+    step2: "Verification de l'adresse e-mail",
+    step3: "Informations de l'invite(e)",
+    step4: "Confirmation de la demande",
+    step5: "Passage en caisse (si necessaire)",
+    step6: "Envoi de l'invitation",
+    bar1: "Email",
+    bar2: "Verification",
+    bar3: "Demande",
+    title: "Entrer le code",
+    subtitle: "Tapez le code envoye a votre email",
+    placeholder: "Code de verification",
+    button: "Verifier",
+    wrong: "Code faux ou expire"
+  },
+  ar: {
+    steps: "طلب دعوة الى Kermesse CSF 2026",
+    step1: "ادخال عنوان البريد الالكتروني",
+    step2: "التحقق من عنوان البريد الالكتروني",
+    step3: "ادخال معلومات المدعو(ة)",
+    step4: "تأكيد الطلب",
+    step5: "السداد (اذا لزم الامر)",
+    step6: "تسلم الدعوة",
+    bar1: "ادخال البريد",
+    bar2: "رمز التحقق",
+    bar3: "بيانات المدعو(ة)",
+    title: "ادخل الرمز",
+    subtitle: "اكتب الرمز المرسل الى بريدك الالكتروني",
+    placeholder: "رمز التحقق",
+    button: "تحقق",
+    wrong: "الرمز غير صحيح او انتهت صلاحيته"
+  }
+};
+
+let lang = localStorage.getItem("lang") || "fr";
+
+function applyLang() {
+  document.body.classList.toggle("rtl", lang === "ar");
+  document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+  document.getElementById("stepsTitle").innerText = TEXT[lang].steps;
+  document.getElementById("step1").innerText = TEXT[lang].step1;
+  document.getElementById("step2").innerText = TEXT[lang].step2;
+  document.getElementById("step3").innerText = TEXT[lang].step3;
+  document.getElementById("step4").innerText = TEXT[lang].step4;
+  document.getElementById("step5").innerText = TEXT[lang].step5;
+  document.getElementById("step6").innerText = TEXT[lang].step6;
+  document.getElementById("bar1").innerText = TEXT[lang].bar1;
+  document.getElementById("bar2").innerText = TEXT[lang].bar2;
+  document.getElementById("bar3").innerText = TEXT[lang].bar3;
+  document.getElementById("verifyTitle").innerText = TEXT[lang].title;
+  document.getElementById("verifySubtitle").innerText = TEXT[lang].subtitle;
+  document.getElementById("codeInput").placeholder = TEXT[lang].placeholder;
+  document.getElementById("verifyBtn").innerText = TEXT[lang].button;
+}
+
+function hideLoader() {
+  loader.classList.add("hidden");
+}
+
+function showPopup(title, text) {
+  document.getElementById("successPopupTitle").innerText = title;
+  document.getElementById("successPopupText").innerText = text;
+  document.getElementById("successPopup").classList.add("active");
+}
+
+function closePopup(){
+  document.getElementById("successPopup").classList.remove("active");
+}
+
+window.addEventListener("load", () => {
+  hideLoader();
+  applyLang();
+});
+
+async function verifyCode() {
+  const email = localStorage.getItem("loginEmail");
+  const code = document.getElementById("codeInput").value.trim();
+  const res = await fetch("/api/verify-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code })
+  });
+  const data = await res.json();
+  if(!data.ok){
+    showPopup("Error", TEXT[lang].wrong);
+    return;
+  }
+  localStorage.setItem("studentToken", data.token);
+  window.location = "/";
+}
+</script>
+</body>
+</html>

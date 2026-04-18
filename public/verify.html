@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Verification</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .verify-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+    .verify-card { width: min(540px, 100%); background: #fff; border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+    .status-header { padding: 14px; text-align: center; font-weight: 800; letter-spacing: .7px; }
+    .status-granted { background: rgba(0, 184, 102, .12); color: #0e7b4f; }
+    .status-reentry { background: rgba(240, 173, 78, .2); color: #9a5f00; }
+    .photo-block { padding: 18px; display: flex; justify-content: center; }
+    #photo { width: 190px; height: 190px; object-fit: cover; border-radius: 16px; border: 1px solid var(--border); }
+    .info { padding: 0 18px 18px; }
+    .meta-item { background: #f7faff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+    .meta-label { font-size: .78rem; color: var(--muted); }
+    .meta-value { font-weight: 700; margin-top: 2px; }
+    #name { text-align: center; margin: 0; }
+    .error-box { color: var(--danger); text-align: center; padding: 20px; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="verify-wrap">
+  <div class="verify-card" id="ui" style="display:none;">
+    <div id="status-bar" class="status-header">Validating...</div>
+    <div class="photo-block"><img id="photo" src="" alt="Guest"></div>
+    <div class="info">
+      <h2 id="name">---</h2>
+      <div class="meta-item">
+        <div class="meta-label">National ID</div>
+        <div class="meta-value" id="nid">---</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Booking Reference</div>
+        <div class="meta-value" id="bid">---</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Scanned by</div>
+        <div class="meta-value" id="scanuser">---</div>
+      </div>
+    </div>
+  </div>
+  <div class="verify-card error-box" id="error" style="display:none;"></div>
+</div>
+
+<script>
+function tokenFromInput(scannedText) {
+  if (!scannedText) return "";
+  if (scannedText.includes("token=")) {
+    const query = scannedText.includes("?") ? scannedText.split("?")[1] : scannedText;
+    const params = new URLSearchParams(query);
+    return params.get("token") || scannedText;
+  }
+  return scannedText;
+}
+
+async function loadData(scannedText) {
+  const token = tokenFromInput(scannedText);
+  const response = await fetch("/api/scanner/scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token })
+  });
+  return response.json();
+}
+
+function showError(msg) {
+  const err = document.getElementById("error");
+  err.textContent = msg;
+  err.style.display = "block";
+}
+
+function updateUI(data) {
+  const ui = document.getElementById("ui");
+  const statusBar = document.getElementById("status-bar");
+  const reentry = data.reentry === true || data.alreadyScanned === true;
+  const statusText = reentry ? "Already scanned before" : "Access Granted";
+  statusBar.textContent = statusText;
+  statusBar.className = "status-header " + (reentry ? "status-reentry" : "status-granted");
+  document.getElementById("name").textContent = data.guestName || "---";
+  document.getElementById("nid").textContent = data.nationalId || "---";
+  document.getElementById("bid").textContent = data.bookingId || "---";
+  document.getElementById("photo").src = data.photoUrl || "";
+  document.getElementById("scanuser").textContent = data.scannedBy || localStorage.getItem("scannerUsername") || "---";
+  ui.style.display = "block";
+}
+
+window.addEventListener("load", async () => {
+  try {
+    const urlToken = new URLSearchParams(window.location.search).get("token");
+    const result = await loadData(urlToken);
+    if (!result || result.ok === false) {
+      if (result && result.error === "Redirecting to scanner login...") return;
+      showError(result && result.error ? result.error : "Invalid ticket");
+      return;
+    }
+    updateUI(result);
+  } catch (err) {
+    showError("Unable to verify ticket");
+  }
+});
+</script>
+</body>
+</html>

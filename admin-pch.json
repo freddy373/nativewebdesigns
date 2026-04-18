@@ -1,0 +1,15 @@
+[
+  {
+    "bookingId": "afac4efa-9ec4-480b-a749-9057a5900f55",
+    "firstName": "",
+    "lastName": "d",
+    "email": "tickets2.kermesse@jesuitescsf.com",
+    "studentName": "ticket",
+    "nationalId": "67575475367865",
+    "school": "pch",
+    "status": "TICKET_SENT",
+    "photo": "1776537709876-9ec48abb-e854-415a-97aa-bbeef44594d7.jpeg",
+    "sentAt": "2026-04-18T18:43:04.968Z",
+    "sentByAdmin": "pch"
+  }
+]

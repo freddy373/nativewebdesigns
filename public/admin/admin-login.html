@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="card login-card">
+      <h2>Admin Login</h2>
+      <input id="username" class="field input" placeholder="Username">
+      <input id="password" class="field input" type="password" placeholder="Password">
+      <button id="loginBtn" class="btn">Login</button>
+      <p id="msg" class="muted"></p>
+    </div>
+  </div>
+<script>
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const msg = document.getElementById("msg");
+  msg.textContent = "";
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      msg.textContent = "Wrong username or password.";
+      return;
+    }
+    localStorage.setItem("adminToken_" + data.adminType, data.token);
+    window.location.href = "/admin/admin-" + data.adminType + ".html";
+  } catch {
+    msg.textContent = "Server error.";
+  }
+});
+</script>
+</body>
+</html>

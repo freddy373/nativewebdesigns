@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCH Admin</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1 class="title">PCH - Payment Pending</h1>
+    <div class="actions">
+      <input id="searchInput" class="input" placeholder="Search email, guest, student, booking ID">
+      <button class="btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="card stat"><div class="n" id="totalCount">0</div><div class="l">Total pending</div></div>
+    <div class="card stat"><div class="n" id="visibleCount">0</div><div class="l">Visible</div></div>
+    <div class="card stat"><div class="n" id="ticketsCount">0</div><div class="l">Tickets sent</div></div>
+    <div class="card stat"><div class="n" id="moneyCount">0</div><div class="l">Total money (EGP)</div></div>
+  </div>
+  <div class="card table-wrap">
+    <table><thead><tr><th>Guest</th><th>Email</th><th>Student</th><th>Booking ID</th><th>Select</th></tr></thead><tbody id="tableBody"></tbody></table>
+  </div>
+  <div class="footer-actions"><span class="grow muted">Select rows then click send.</span><button onclick="sendSelected()">Send Selected Tickets</button></div>
+</div>
+<script>
+const adminType = "pch";
+const token = localStorage.getItem("adminToken_" + adminType);
+if (!token) window.location.href = "/admin/admin-login.html";
+const selected = new Set();
+let all = [];
+
+function logout(){ localStorage.removeItem("adminToken_" + adminType); window.location.href = "/admin/admin-login.html"; }
+function match(b, q){ const full = `${b.firstName||""} ${b.lastName||""}`.toLowerCase(); return full.includes(q)||String(b.email||"").toLowerCase().includes(q)||String(b.studentName||"").toLowerCase().includes(q)||String(b.bookingId||"").toLowerCase().includes(q);}
+function filtered(){ const q=document.getElementById("searchInput").value.trim().toLowerCase(); return q?all.filter(b=>match(b,q)):all; }
+function render(rows){
+  const body=document.getElementById("tableBody"); body.innerHTML="";
+  rows.forEach(b=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${b.firstName||""} ${b.lastName||""}</td><td>${b.email||""}</td><td>${b.studentName||""}</td><td>${b.bookingId}</td><td><input type="checkbox" data-id="${b.bookingId}" ${selected.has(b.bookingId)?"checked":""}></td>`; body.appendChild(tr);});
+  document.getElementById("totalCount").textContent = all.length;
+  document.getElementById("visibleCount").textContent = rows.length;
+}
+document.addEventListener("change", e=>{ if(e.target.dataset.id){ if(e.target.checked) selected.add(e.target.dataset.id); else selected.delete(e.target.dataset.id);} });
+document.getElementById("searchInput").addEventListener("input", ()=>render(filtered()));
+async function load(){ const r=await fetch("/api/admin/payment-pending",{headers:{Authorization:"Bearer "+token}}); const d=await r.json(); if(!d.ok) return alert("Unauthorized"); all=d.data||[]; render(filtered()); }
+async function loadStats(){ const r=await fetch("/api/admin/stats",{headers:{Authorization:"Bearer "+token}}); const d=await r.json(); if(!d.ok) return; document.getElementById("ticketsCount").textContent=d.tickets; document.getElementById("moneyCount").textContent=d.totalMoney; }
+async function sendSelected(){ const ids=[...selected]; if(!ids.length) return alert("Select at least one row"); for(const bookingId of ids){ await fetch("/api/admin/send-ticket",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({bookingId})}); } selected.clear(); await load(); await loadStats(); alert("Tickets sent");}
+load(); loadStats();
+</script>
+</body>
+</html>

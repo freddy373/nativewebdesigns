@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner Login</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="card login-card">
+      <h2>Scanner login</h2>
+      <p class="muted" style="margin-top:0">Use your scanner operator account (1–8).</p>
+      <input id="username" class="field input" placeholder="Username" autocomplete="username">
+      <input id="password" class="field input" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn" class="btn" type="button">Login</button>
+      <p id="msg" class="muted"></p>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const nextUrl = params.get("next") || "/scanner.html";
+
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const msg = document.getElementById("msg");
+      msg.textContent = "";
+      try {
+        const res = await fetch("/api/scanner/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          msg.textContent = data.error || "Login failed.";
+          return;
+        }
+        localStorage.setItem("scannerToken", data.token);
+        if (data.username) localStorage.setItem("scannerUsername", data.username);
+        window.location.href = nextUrl;
+      } catch {
+        msg.textContent = "Server error.";
+      }
+    });
+  </script>
+</body>
+</html>

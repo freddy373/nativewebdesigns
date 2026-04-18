@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Main Admin</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1 class="title">Main Admin - Bookings</h1>
+    <div class="actions">
+      <input id="searchInput" class="input" placeholder="Search by guest, email, student, booking ID, national ID">
+      <button class="btn-secondary" onclick="exportExcel()">Export Excel</button>
+      <button class="btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="card stat"><div class="n" id="pendingCount">0</div><div class="l">Pending</div></div>
+    <div class="card stat"><div class="n" id="selectedApprove">0</div><div class="l">Selected Approve</div></div>
+    <div class="card stat"><div class="n" id="selectedReject">0</div><div class="l">Selected Reject</div></div>
+    <div class="card stat"><div class="n" id="duplicateCount">0</div><div class="l">Duplicate National IDs</div></div>
+  </div>
+
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Guest</th><th>Email</th><th>Student</th><th>National ID</th><th>Photo</th><th>Status</th><th>Approve</th><th>Reject</th><th>Delete</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer-actions">
+    <span class="badge grow" id="dupLabel">No duplicates detected</span>
+    <button class="btn-ok" onclick="submitActions()">Submit Actions</button>
+  </div>
+</div>
+<div id="photoModal" class="photo-modal" onclick="closePhotoZoom()">
+  <img id="photoModalImg" src="" alt="Zoomed photo">
+</div>
+
+<script>
+const token = localStorage.getItem("adminToken_main");
+if (!token) window.location.href = "/admin/admin-login.html";
+
+const selectedActions = new Map();
+let allRows = [];
+
+function logout() {
+  localStorage.removeItem("adminToken_main");
+  window.location.href = "/admin/admin-login.html";
+}
+
+function updateCounters(rows) {
+  document.getElementById("pendingCount").textContent = rows.length;
+  let approves = 0;
+  let rejects = 0;
+  for (const v of selectedActions.values()) {
+    if (v === "approve") approves += 1;
+    if (v === "reject") rejects += 1;
+  }
+  document.getElementById("selectedApprove").textContent = approves;
+  document.getElementById("selectedReject").textContent = rejects;
+}
+
+function detectDuplicates(rows) {
+  const counts = {};
+  rows.forEach(r => {
+    const key = (r.nationalId || "").trim();
+    if (!key) return;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const duplicates = Object.keys(counts).filter(k => counts[k] > 1);
+  document.getElementById("duplicateCount").textContent = duplicates.length;
+  document.getElementById("dupLabel").textContent = duplicates.length ? `Duplicates: ${duplicates.join(", ")}` : "No duplicates detected";
+}
+
+function matchesSearch(b, search) {
+  const full = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+  return (
+    full.includes(search) ||
+    String(b.email || "").toLowerCase().includes(search) ||
+    String(b.studentName || "").toLowerCase().includes(search) ||
+    String(b.bookingId || "").toLowerCase().includes(search) ||
+    String(b.nationalId || "").toLowerCase().includes(search)
+  );
+}
+
+function render(rows) {
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+  rows.forEach(b => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${new Date(b.date).toLocaleString()}</td>
+      <td>${b.firstName || ""} ${b.lastName || ""}</td>
+      <td>${b.email || ""}</td>
+      <td>${b.studentName || ""}</td>
+      <td>${b.nationalId || ""}</td>
+      <td><img class="avatar square-zoom" src="${b.photo || ''}" alt="Guest photo" onclick="openPhotoZoom('${b.photo || ''}')"
+        onerror="this.onerror=null;this.style.objectFit='contain';this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><rect width=%22120%22 height=%22120%22 fill=%22%23edf2ff%22/><text x=%2260%22 y=%2265%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%2362709a%22>No photo</text></svg>'"></td>
+      <td><span class="badge">${b.status}</span></td>
+      <td>
+        <button class="action-btn ${selectedActions.get(b.bookingId) === 'approve' ? 'active-approve' : ''}" data-id="${b.bookingId}" data-action="approve">Approve</button>
+      </td>
+      <td>
+        <button class="action-btn ${selectedActions.get(b.bookingId) === 'reject' ? 'active-reject' : ''}" data-id="${b.bookingId}" data-action="reject">Reject</button>
+      </td>
+      <td>
+        <button class="action-btn ${selectedActions.get(b.bookingId) === 'delete' ? 'active-delete' : ''}" data-id="${b.bookingId}" data-action="delete">Delete</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+  updateCounters(rows);
+  detectDuplicates(rows);
+}
+
+document.addEventListener("click", (e) => {
+  const id = e.target.dataset.id;
+  const action = e.target.dataset.action;
+  if (!id || !action) return;
+  const prev = selectedActions.get(id);
+  if (prev === action) {
+    selectedActions.delete(id);
+  } else {
+    selectedActions.set(id, action);
+  }
+  render(filteredRows());
+});
+
+function filteredRows() {
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  if (!q) return allRows;
+  return allRows.filter(r => matchesSearch(r, q));
+}
+
+document.getElementById("searchInput").addEventListener("input", () => render(filteredRows()));
+
+async function loadBookings() {
+  const res = await fetch("/api/admin/pending", { headers: { Authorization: "Bearer " + token } });
+  const data = await res.json();
+  if (!data.ok) return alert("Unauthorized");
+  allRows = data.data || [];
+  render(filteredRows());
+}
+
+async function submitActions() {
+  const entries = [...selectedActions.entries()];
+  if (!entries.length) return alert("No selected rows");
+  for (const [bookingId, action] of entries) {
+    await fetch(`/api/admin/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ bookingId })
+    });
+  }
+  selectedActions.clear();
+  await loadBookings();
+  alert(`${entries.length} action(s) applied`);
+}
+
+function openPhotoZoom(src) {
+  if (!src) return;
+  const modal = document.getElementById("photoModal");
+  document.getElementById("photoModalImg").src = src;
+  modal.classList.add("active");
+}
+
+function closePhotoZoom() {
+  document.getElementById("photoModal").classList.remove("active");
+}
+
+function exportExcel() {
+  fetch("/api/admin/export", { headers: { Authorization: "Bearer " + token } })
+    .then(res => res.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "bookings.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+}
+
+loadBookings();
+</script>
+</body>
+</html>

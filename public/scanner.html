@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="color-scheme" content="light">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kermesse Scanner</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+  <div class="scanner-page">
+    <div class="scanner-top">Kermesse CSF 2026 - Scanner</div>
+    <div class="scanner-card"><div id="reader"></div></div>
+    <div class="scanner-card" id="m">Point camera at QR code...</div>
+  </div>
+
+  <script>
+    const scannerToken = localStorage.getItem("scannerToken");
+    if (!scannerToken) {
+      window.location.href = "/scanner-login.html?next=" + encodeURIComponent("/scanner.html");
+    }
+
+    const m = document.getElementById("m");
+    const qr = new Html5Qrcode("reader");
+
+    function beep() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 960;
+      gain.gain.value = 0.08;
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        audioCtx.close();
+      }, 120);
+    }
+
+    function verifyPathFromScan(text) {
+      let token = "";
+      if (/^https?:\/\//i.test(text)) {
+        try {
+          const u = new URL(text);
+          token = u.searchParams.get("token") || "";
+        } catch {
+          token = "";
+        }
+      } else {
+        token = text;
+      }
+      if (!token) {
+        m.textContent = "QR does not contain a ticket token.";
+        return null;
+      }
+      return "/verify.html?token=" + encodeURIComponent(token);
+    }
+
+    async function start() {
+      const cams = await Html5Qrcode.getCameras();
+      const cam = cams.find(c => /back|rear|environment/i.test(c.label)) || cams[0];
+      await qr.start(
+        { deviceId: { exact: cam.id } },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        (text) => {
+          beep();
+          m.textContent = "QR detected. Opening verification...";
+          const path = verifyPathFromScan(text);
+          if (path) location.href = path;
+        }
+      );
+    }
+
+    start().catch(() => {
+      m.textContent = "Camera blocked. Allow camera permission and reload.";
+    });
+  </script>
+</body>
+</html>

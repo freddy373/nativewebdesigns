@@ -1,0 +1,10 @@
+[
+  { "username": "scanner1", "password": "ChangeMe1!" },
+  { "username": "scanner2", "password": "ChangeMe2!" },
+  { "username": "scanner3", "password": "ChangeMe3!" },
+  { "username": "scanner4", "password": "ChangeMe4!" },
+  { "username": "scanner5", "password": "ChangeMe5!" },
+  { "username": "scanner6", "password": "ChangeMe6!" },
+  { "username": "scanner7", "password": "ChangeMe7!" },
+  { "username": "scanner8", "password": "ChangeMe8!" }
+]
