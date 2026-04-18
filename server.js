@@ -44,7 +44,6 @@ const ADMINS = {
 };
 
 const app = express();
-const PORT = 3000;
 
 const BASE_URL = process.env.PUBLIC_BASE_URL || "http://192.168.1.5:3000";
 console.log("BASE URL:", BASE_URL);
